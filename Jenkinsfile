@@ -29,18 +29,18 @@ pipeline {
             }
         }
 
+        stage('Deploy GREEN') {
+            steps {
+                sh 'kubectl apply -f k8s/green-deployment.yaml'
+            }
+        }
+
         stage('Update GREEN Image') {
             steps {
                 sh '''
                 kubectl set image deployment/vle8-green \
-                vle8=spandanduari/vle8-app:${BUILD_NUMBER} || true
+                vle8=$IMAGE
                 '''
-            }
-        }
-
-        stage('Deploy GREEN') {
-            steps {
-                sh 'kubectl apply -f k8s/green-deployment.yaml'
             }
         }
 
@@ -50,19 +50,36 @@ pipeline {
             }
         }
 
-        stage('Approval') {
+        stage('Health Check GREEN') {
             steps {
-                input message: 'Switch traffic to GREEN?', ok: 'Deploy'
+                sh '''
+                NODE_IP=$(hostname -I | awk '{print $1}')
+                PORT=$(kubectl get svc vle8-service -o jsonpath='{.spec.ports[0].nodePort}')
+
+                echo "Checking health at http://$NODE_IP:$PORT/health"
+
+                curl -f http://$NODE_IP:$PORT/health
+                '''
             }
         }
 
-        stage('Switch Traffic') {
+        stage('Auto Switch Traffic') {
             steps {
                 sh '''
                 kubectl patch service vle8-service \
                 -p '{"spec":{"selector":{"app":"vle8","version":"green"}}}'
                 '''
             }
+        }
+    }
+
+    post {
+        failure {
+            sh '''
+            echo "Deployment failed! Rolling back to BLUE..."
+            kubectl patch service vle8-service \
+            -p '{"spec":{"selector":{"app":"vle8","version":"blue"}}}'
+            '''
         }
     }
 }
