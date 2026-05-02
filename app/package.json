@@ -1,0 +1,12 @@
+{
+  "name": "vle8-blue-green",
+  "version": "1.0.0",
+  "description": "VLE 8 Blue-Green Deployment",
+  "main": "server.js",
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "scripts": {
+    "start": "node server.js"
+  }
+}

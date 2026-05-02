@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vle8-blue
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vle8
+      version: blue
+  template:
+    metadata:
+      labels:
+        app: vle8
+        version: blue
+    spec:
+      containers:
+      - name: vle8
+        image: spandanduari/vle8-app:latest
+        env:
+        - name: VERSION
+          value: "BLUE"
+        ports:
+        - containerPort: 3000
