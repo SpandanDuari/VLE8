@@ -43,7 +43,7 @@ pipeline {
                 docker stop green-container || true
                 docker rm green-container || true
 
-                docker run -d -p 8006:3000 \
+                docker run -d -p 8008:3000 \
                 --name green-container \
                 -e VERSION=GREEN \
                 $IMAGE
@@ -53,7 +53,7 @@ pipeline {
 
         stage('Test GREEN') {
             steps {
-                sh 'curl -f http://localhost:8006/health'
+                sh 'curl -f http://localhost:8008/health'
             }
         }
 
@@ -63,7 +63,7 @@ pipeline {
                 docker stop blue-container || true
                 docker rm blue-container || true
 
-                docker run -d -p 8005:3000 \
+                docker run -d -p 8007:3000 \
                 --name blue-container \
                 -e VERSION=GREEN \
                 $IMAGE
