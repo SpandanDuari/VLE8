@@ -37,55 +37,75 @@ pipeline {
             }
         }
 
-        stage('Deploy GREEN') {
+        stage('Decide Deployment Color') {
+            steps {
+                script {
+                    def blueRunning = sh(
+                        script: "docker ps --filter 'name=blue-container' --format '{{.Names}}'",
+                        returnStdout: true
+                    ).trim()
+
+                    if (blueRunning == "blue-container") {
+                        env.NEW_COLOR = "green"
+                        env.OLD_COLOR = "blue"
+                        env.NEW_PORT = "8008"
+                        env.OLD_PORT = "8007"
+                    } else {
+                        env.NEW_COLOR = "blue"
+                        env.OLD_COLOR = "green"
+                        env.NEW_PORT = "8007"
+                        env.OLD_PORT = "8008"
+                    }
+
+                    echo "Deploying ${env.NEW_COLOR}, replacing ${env.OLD_COLOR}"
+                }
+            }
+        }
+
+        stage('Deploy New Version') {
             steps {
                 sh '''
-                echo "Deploying GREEN container..."
+                echo "Deploying $NEW_COLOR container..."
 
-                docker stop green-container || true
-                docker rm green-container || true
+                docker stop ${NEW_COLOR}-container || true
+                docker rm ${NEW_COLOR}-container || true
 
-                docker run -d -p 8008:3000 \
-                --name green-container \
-                -e VERSION=GREEN \
+                docker run -d -p ${NEW_PORT}:3000 \
+                --name ${NEW_COLOR}-container \
+                -e VERSION=${NEW_COLOR^^} \
                 $IMAGE
                 '''
             }
         }
 
-        stage('Health Check GREEN') {
+        stage('Health Check New Version') {
             steps {
                 sh '''
-                echo "Checking GREEN health..."
+                echo "Checking $NEW_COLOR health..."
 
                 for i in {1..10}; do
-                    if curl -f http://localhost:8008/health; then
-                        echo "GREEN is healthy"
+                    if curl -f http://localhost:${NEW_PORT}/health; then
+                        echo "$NEW_COLOR is healthy"
                         exit 0
                     fi
-                    echo "Retrying in 2 seconds..."
+                    echo "Retrying..."
                     sleep 2
                 done
 
-                echo "GREEN failed health check"
-                docker logs green-container
+                echo "$NEW_COLOR failed health check"
+                docker logs ${NEW_COLOR}-container
                 exit 1
                 '''
             }
         }
 
-        stage('Switch Traffic (BLUE → GREEN)') {
+        stage('Switch Traffic') {
             steps {
                 sh '''
-                echo "Switching traffic to GREEN..."
+                echo "Switching traffic to $NEW_COLOR..."
 
-                docker stop blue-container || true
-                docker rm blue-container || true
-
-                docker run -d -p 8007:3000 \
-                --name blue-container \
-                -e VERSION=GREEN \
-                $IMAGE
+                docker stop ${OLD_COLOR}-container || true
+                docker rm ${OLD_COLOR}-container || true
                 '''
             }
         }
@@ -94,7 +114,7 @@ pipeline {
     post {
         failure {
             sh '''
-            echo "Deployment failed! Keeping old BLUE running..."
+            echo "Deployment failed! Keeping previous version running."
             '''
         }
     }
