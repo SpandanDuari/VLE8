@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 3000;
 
 // Project info
 const STUDENT = "Spandan Duari";
-const PROJECT = "VLE 8 - Blue Green Deployment";
+const PROJECT = "VLE 8 - Blue Green";
 
 // Root route (UI)
 app.get("/", (req, res) => {
