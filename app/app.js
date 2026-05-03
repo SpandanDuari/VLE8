@@ -16,7 +16,7 @@ app.get("/", (req, res) => {
   res.send(`
     <html>
       <head>
-        <title>VLE 8 Deployment</title>
+        <title>VLE 8</title>
       </head>
       <body style="font-family: Arial; text-align: center; margin-top: 50px;">
         
