@@ -5,30 +5,57 @@ const app = express();
 const VERSION = process.env.VERSION || "BLUE";
 const PORT = process.env.PORT || 3000;
 
-// VLE 8 details
+// Project info
 const STUDENT = "Spandan Duari";
 const PROJECT = "VLE 8 - Blue Green Deployment";
 
-// Root route
+// Root route (UI)
 app.get("/", (req, res) => {
+  const isGreen = VERSION === "GREEN";
+
   res.send(`
-    <h2>${PROJECT}</h2>
-    <p>Student: ${STUDENT}</p>
-    <p>Deployment Version: <b>${VERSION}</b></p>
+    <html>
+      <head>
+        <title>VLE 8 Deployment</title>
+      </head>
+      <body style="font-family: Arial; text-align: center; margin-top: 50px;">
+        
+        <h1 style="color:${isGreen ? "green" : "blue"};">
+          ${PROJECT}
+        </h1>
+
+        <h2>Student: ${STUDENT}</h2>
+
+        <h3>
+          Deployment Version: 
+          <b style="color:${isGreen ? "green" : "blue"};">
+            ${VERSION}
+          </b>
+        </h3>
+
+        <h3>
+          ${isGreen ? "🟢 GREEN (New Version Live)" : "🔵 BLUE (Current Stable Version)"}
+        </h3>
+
+        <p>Timestamp: ${new Date().toLocaleString()}</p>
+
+      </body>
+    </html>
   `);
 });
 
-// Health check (used by Jenkins + Kubernetes)
+// Health check (used by Jenkins)
 app.get("/health", (req, res) => {
   res.status(200).send("OK");
 });
 
-// Optional: extra info endpoint (good for viva/demo)
+// Debug/info endpoint (for testing)
 app.get("/info", (req, res) => {
   res.json({
     project: PROJECT,
     student: STUDENT,
     version: VERSION,
+    status: VERSION === "GREEN" ? "updated" : "stable",
     time: new Date()
   });
 });
