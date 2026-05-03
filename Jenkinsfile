@@ -40,6 +40,8 @@ pipeline {
         stage('Deploy GREEN') {
             steps {
                 sh '''
+                echo "Deploying GREEN container..."
+
                 docker stop green-container || true
                 docker rm green-container || true
 
@@ -51,15 +53,32 @@ pipeline {
             }
         }
 
-        stage('Test GREEN') {
+        stage('Health Check GREEN') {
             steps {
-                sh 'curl -f http://localhost:8008/health'
+                sh '''
+                echo "Checking GREEN health..."
+
+                for i in {1..10}; do
+                    if curl -f http://localhost:8008/health; then
+                        echo "GREEN is healthy"
+                        exit 0
+                    fi
+                    echo "Retrying in 2 seconds..."
+                    sleep 2
+                done
+
+                echo "GREEN failed health check"
+                docker logs green-container
+                exit 1
+                '''
             }
         }
 
-        stage('Switch Traffic') {
+        stage('Switch Traffic (BLUE → GREEN)') {
             steps {
                 sh '''
+                echo "Switching traffic to GREEN..."
+
                 docker stop blue-container || true
                 docker rm blue-container || true
 
@@ -69,6 +88,14 @@ pipeline {
                 $IMAGE
                 '''
             }
+        }
+    }
+
+    post {
+        failure {
+            sh '''
+            echo "Deployment failed! Keeping old BLUE running..."
+            '''
         }
     }
 }
