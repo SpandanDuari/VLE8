@@ -19,67 +19,56 @@ pipeline {
             }
         }
 
-        stage('Push Image') {
+        stage('Docker Login & Push') {
             steps {
-                sh '''
-                docker tag $IMAGE spandanduari/vle8-app:latest
-                docker push $IMAGE
-                docker push spandanduari/vle8-app:latest
-                '''
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-cred',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                    echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                    
+                    docker tag $IMAGE spandanduari/vle8-app:latest
+                    docker push $IMAGE
+                    docker push spandanduari/vle8-app:latest
+                    '''
+                }
             }
         }
 
         stage('Deploy GREEN') {
             steps {
-                sh 'kubectl apply -f k8s/green-deployment.yaml'
-            }
-        }
-
-        stage('Update GREEN Image') {
-            steps {
                 sh '''
-                kubectl set image deployment/vle8-green \
-                vle8=$IMAGE
+                docker stop green-container || true
+                docker rm green-container || true
+
+                docker run -d -p 8006:3000 \
+                --name green-container \
+                -e VERSION=GREEN \
+                $IMAGE
                 '''
             }
         }
 
-        stage('Wait for GREEN Ready') {
+        stage('Test GREEN') {
             steps {
-                sh 'kubectl rollout status deployment/vle8-green'
+                sh 'curl -f http://localhost:8006/health'
             }
         }
 
-        stage('Health Check GREEN') {
-            steps {
-                sh '''
-                NODE_IP=$(hostname -I | awk '{print $1}')
-                PORT=$(kubectl get svc vle8-service -o jsonpath='{.spec.ports[0].nodePort}')
-
-                echo "Checking health at http://$NODE_IP:$PORT/health"
-
-                curl -f http://$NODE_IP:$PORT/health
-                '''
-            }
-        }
-
-        stage('Auto Switch Traffic') {
+        stage('Switch Traffic') {
             steps {
                 sh '''
-                kubectl patch service vle8-service \
-                -p '{"spec":{"selector":{"app":"vle8","version":"green"}}}'
+                docker stop blue-container || true
+                docker rm blue-container || true
+
+                docker run -d -p 8005:3000 \
+                --name blue-container \
+                -e VERSION=GREEN \
+                $IMAGE
                 '''
             }
-        }
-    }
-
-    post {
-        failure {
-            sh '''
-            echo "Deployment failed! Rolling back to BLUE..."
-            kubectl patch service vle8-service \
-            -p '{"spec":{"selector":{"app":"vle8","version":"blue"}}}'
-            '''
         }
     }
 }
